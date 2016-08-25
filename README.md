@@ -2,7 +2,7 @@
 
 ## Quick start
 ### Clone repository
-> git clone git clone https://github.com/rlmcl/rescan
+> git clone https://github.com/rlmcl/rescan
 
 ### Compile
 > cd rescan
