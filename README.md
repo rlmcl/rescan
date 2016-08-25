@@ -6,6 +6,7 @@
 
 ### Compile
 > cd rescan
+
 > gcc -w -o rescan rescan.c
 
 ### Install
@@ -13,8 +14,11 @@
 
 ### Run on SAM-format stream
 > samtools view in.bam [ region ] | rescan \\ 
+
 >   [ -s start region for reporting ] \\
+
 >   [ -e end region for reporting ] \\
+
 >   [ -d distance parameter ] > out.rescan
 
 ## Overview
