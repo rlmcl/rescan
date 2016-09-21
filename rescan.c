@@ -63,8 +63,8 @@ int main( int argc, char **argv )
 			case 'q': minq = atoi(optarg); break;
 		}
 	}
-	hash 	*goodmapped = hash_new( 250000000 ),//end-start ),
-		*badmapped  = hash_new( 250000000 );//end-start );
+	hash 	*goodmapped = hash_new( 1000000000 ),
+		*badmapped  = hash_new( 1000000000 );
 	
 
 	while ( fgets ( line, sizeof line, stdin ) != NULL )
@@ -88,13 +88,13 @@ int main( int argc, char **argv )
 			{
 				nm = atoi(token+5);
 			}
-			field++;					// increment field number
+			field++;
 		}
-		fprintf(stdout,"%d\n",nmval);
 		
 		// if mapping quality < user's minimum, skip to next read
 		if( mapq < minq ) { continue; }
 
+		//TODO: correct these so that they don't count non-spanning fragments
 		if( ( flag & 16 ) == 16 ) // segment is reverse complemented
 		{
 			startpos = pos - dist;
@@ -107,6 +107,10 @@ int main( int argc, char **argv )
 			endpos = pos + seqlen + dist;
 			direction = 1;
 		}
+		
+		// skip if read doesn't overlap region of interest
+		if( endpos < start | startpos > end ) {	fprintf(stdout,"aah!\n");continue; }
+		
 		if( ( flag & 4 ) == 0 ) // segment is mapped adequately
 		{
 			if( ( flag & 8 ) == 0 ) // next segment is mapped adequately
@@ -163,13 +167,13 @@ int main( int argc, char **argv )
 		if( hashval > 0 )
 		{
 			result = (float)hashval/((float)hashval+(float)hashval2);
-//			fprintf( stdout, "%f\t", result );
+			fprintf( stdout, "%f\t", result );
 		}
 		else
 		{
-//			fprintf( stdout, "0\t" );
+			fprintf( stdout, "0\t" );
 		}
 	}
-//	fprintf( stdout, "\n" );
+	fprintf( stdout, "\n" );
 	return 0;
 }
