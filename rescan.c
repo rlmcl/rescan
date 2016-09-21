@@ -2,64 +2,23 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
+#include "functions.h"
+#include "help.h"
 //#include "samtools-1.3.1/bam.h"
-
-#define BUFFSIZE 4096
-
-typedef struct
-{
-	int size;
-	void **keys;
-	void **values;
-} hash;
- 
-hash *hash_new (int size)
-{
-	hash *h = calloc(1, sizeof (hash));
-	h->keys = calloc(size, sizeof (void *));
-	h->values = calloc(size, sizeof (void *));
-	h->size = size;
-	return h;
-}
- 
-int hash_index (hash *h, void *key)
-{
-	int i = (int) key % h->size;
-	while (h->keys[i] && h->keys[i] != key)
-		i = (i + 1) % h->size;
-	return i;
-}
- 
-void hash_insert (hash *h, void *key, void *value)
-{
-	int i = hash_index(h, key);
-	h->keys[i] = key;
-	h->values[i] = value;
-}
- 
-void *hash_lookup (hash *h, void *key)
-{
-	int i = hash_index(h, key);
-	return h->values[i];
-}
-
-void usage()
-{
-	fprintf(stderr,"REscan development version 0.00\nNo more help than that, I'm afraid\n"
-);
-return;
-}
 
 int main( int argc, char **argv )
 {
 	int	start=0,	// start position for reporting (specify 0 for whole-chromosome)
 		end=250000000,	// end position for reporting (specify chr length for whole-chromosome)
 		dist = 200,	// upstream/downstream parameter for searching each locus for bad read pairs
+		minq = 20,	// minimum mapping quality to consider a good read
 		maxfrag = 2000,	// maximum fragment length permitted (distance between read pairs)
 		field,		// field counter to identify right columns from bam
 		flag,		// bitwise flag
 		pos,		// read position
+		mapq,		// mapping quality of read
 		pnext,		// pos of next segment
+		nm,		// NM field in bam file (edit distance of read to reference)
 		startpos,	// start position of read's influence
 		endpos,		// end position of read's influence
 		direction,	// direction of read's influence
@@ -74,7 +33,8 @@ int main( int argc, char **argv )
 		*rnext,		// RNEXT string (reference name for next segment)
 		*token;		// for string spliting
 		
-	float	result;		// placeholder for results while printing
+	float	editdist,	// min edit distance (as % of length) to consider read as bad
+		result;		// placeholder for results while printing
 	
 	const char *delim = "\t";// tab delimiter for line inputs
 
@@ -82,13 +42,15 @@ int main( int argc, char **argv )
 	static struct option long_options[] =
 	{
 		{"add", 1, 0, 0},
-		{"start",required_argument,0,'s'},
-		{"end",required_argument,0,'e'},
-		{"distance",required_argument,0,'d'},
-		{"help",no_argument,0,'h'},
+		{"start",required_argument,0,'s'},		// start position for reporting rescan statistics
+		{"end",required_argument,0,'e'},		// end position for reporting
+		{"distance",required_argument,0,'d'},		// up/downstream distance for searching
+		{"levenshtein",required_argument,0,'l'},	// edit distance above which to consider a read bad
+		{"minq",required_argument,0,'q'},		// minimum mapping quality for good reads
+		{"help",no_argument,0,'h'},			// ask for help
 		{NULL, 0, NULL, 0}
 	};
-	while ((c = getopt_long(argc, argv, "hs:e:d:", long_options, &option_index)) != -1)
+	while ((c = getopt_long(argc, argv, "hs:e:d:l:q:", long_options, &option_index)) != -1)
 	{
 		int this_option_optind = optind ? optind : 1;
 		switch (c)
@@ -97,6 +59,8 @@ int main( int argc, char **argv )
 			case 's': start = atoi(optarg); break;
 			case 'e': end = atoi(optarg); break;
 			case 'd': dist = atoi(optarg); break;
+			case 'l': sscanf( optarg, "%f", &editdist ); break;
+			case 'q': minq = atoi(optarg); break;
 		}
 	}
 	hash 	*goodmapped = hash_new( 250000000 ),//end-start ),
@@ -106,22 +70,31 @@ int main( int argc, char **argv )
 	while ( fgets ( line, sizeof line, stdin ) != NULL )
 	{
 		// initialize useful values
-		field = 0;		// for extracting SAM fieils
+		field = 0;		// for extracting SAM fields
 		char *linep = line;	// pointer for looping through line elements
 		
 		while(token = strsep(&linep, delim))
 		{
 			switch(field)
 			{
-				case 1 : flag = atoi(token); break;
-				case 3 : pos = atoi(token); break;
-				case 6 : rnext = token; break;
-				case 7 : pnext = atoi(token); break;
-				case 9 : seqlen = strlen(token); break;
-
+				case 1 : flag = atoi(token); break;	// flag now contains bitwise SAM flag
+				case 3 : pos = atoi(token); break;	// pos now contains mapping position of read
+				case 4 : mapq = atoi(token); break;	// mapq now contains mapping quality of read
+				case 6 : rnext = token; break;		// rnext now contains chr of next read in pair
+				case 7 : pnext = atoi(token); break;	// pnext now contains pos of next read in pair
+				case 9 : seqlen = strlen(token); break;	// seqlen now contains length of read
 			}
-			field++;
+			if( strstr( token, "NM:" ) != NULL )		// extract NM field, if available
+			{
+				nm = atoi(token+5);
+			}
+			field++;					// increment field number
 		}
+		fprintf(stdout,"%d\n",nmval);
+		
+		// if mapping quality < user's minimum, skip to next read
+		if( mapq < minq ) { continue; }
+
 		if( ( flag & 16 ) == 16 ) // segment is reverse complemented
 		{
 			startpos = pos - dist;
@@ -142,6 +115,7 @@ int main( int argc, char **argv )
 				{
 					if( ( pnext - pos ) * direction < maxfrag ) // next segment is within 2kb
 					{
+						//TODO: populate hash of read IDs to ignore (avoid second counting later)
 						for( i=startpos; i<=endpos; i++ )
 						{
 							hashval = hash_lookup( goodmapped, i );
@@ -189,13 +163,13 @@ int main( int argc, char **argv )
 		if( hashval > 0 )
 		{
 			result = (float)hashval/((float)hashval+(float)hashval2);
-			fprintf( stdout, "%f\t", result );
+//			fprintf( stdout, "%f\t", result );
 		}
 		else
 		{
-			fprintf( stdout, "0\t" );
+//			fprintf( stdout, "0\t" );
 		}
 	}
-	fprintf( stdout, "\n" );
+//	fprintf( stdout, "\n" );
 	return 0;
 }
