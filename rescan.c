@@ -109,7 +109,7 @@ int main( int argc, char **argv )
 		}
 		
 		// skip if read doesn't overlap region of interest
-		if( endpos < start | startpos > end ) {	fprintf(stdout,"aah!\n");continue; }
+		if( endpos < start | startpos > end ) {	continue; }
 		
 		if( ( flag & 4 ) == 0 ) // segment is mapped adequately
 		{
@@ -120,41 +120,21 @@ int main( int argc, char **argv )
 					if( ( pnext - pos ) * direction < maxfrag ) // next segment is within 2kb
 					{
 						//TODO: populate hash of read IDs to ignore (avoid second counting later)
-						for( i=startpos; i<=endpos; i++ )
-						{
-							hashval = hash_lookup( goodmapped, i );
-							if( hashval == NULL ) { hash_insert( goodmapped, i, 1 ); }
-							else { hash_insert( goodmapped, i, (hashval+1) ); }
-						}
+						increment( goodmapped, startpos, endpos );
 					}
 					else // next segment is on same chr but too far away (probably rare)
 					{
-						for( i = startpos; i <= endpos; i++ )
-						{
-							hashval = hash_lookup( badmapped, i );
-							if( hashval == NULL ) { hash_insert( badmapped, i, 1 ); }
-							else { hash_insert( badmapped, i, (hashval+1) ); }
-						}
+						increment( badmapped, startpos, endpos );
 					}
 				}
 				else // next segment is on a different chromosome
 				{
-					for( i = startpos; i <= endpos; i++ )
-					{
-						hashval = hash_lookup( badmapped, i );
-						if( hashval == NULL ) { hash_insert( badmapped, i, 1 ); }
-						else { hash_insert( badmapped, i, (hashval+1) ); }
-					}
+					increment( badmapped, startpos, endpos );
 				}
 			}
 			else // next segment is not mapped adequately
 			{
-				for( i = startpos; i <= endpos; i++ )
-				{
-					hashval = hash_lookup( badmapped, i );
-					if( hashval == NULL ) { hash_insert( badmapped, i, 1 ); }
-					else { hash_insert( badmapped, i, (hashval+1) ); }
-				}
+				increment( badmapped, startpos, endpos );
 			}
 		}
 	}

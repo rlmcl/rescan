@@ -42,4 +42,14 @@ void *hash_lookup (hash *h, void *key)
 	return h->values[i];
 }
 
-
+//function to increment goodmapped or badmapped hashes
+void increment (hash *h, int startpos, int endpos)
+{
+	int i, hashval;
+	for( i=startpos; i<=endpos; i++ )
+	{
+		hashval = hash_lookup( h, i );
+		if( hashval == NULL ) { hash_insert( h, i, 1 ); }
+		else { hash_insert( h, i, (hashval+1) ); }
+	}
+}
