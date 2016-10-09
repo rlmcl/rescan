@@ -88,6 +88,10 @@ int main( int argc, char **argv )
 			{
 				nm = atoi(token+5);
 			}
+			else
+			{
+				nm = 0;
+			}
 			field++;
 		}
 		
@@ -108,7 +112,7 @@ int main( int argc, char **argv )
 			direction = 1;
 		}
 		
-		// skip if read doesn't overlap region of interest
+		// skip if fragment doesn't overlap region of interest
 		if( endpos < start | startpos > end ) {	continue; }
 		
 		if( ( flag & 4 ) == 0 ) // segment is mapped adequately
