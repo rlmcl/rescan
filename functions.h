@@ -8,6 +8,15 @@ typedef struct
 	void **values;
 } hash;
 
+// 
+typedef struct
+{
+	hash	*chrlen,
+		*offset,
+		*linelength,
+		*binlinelength;
+} fai;
+
 // function to declare new hash
 hash *hash_new (int size)
 {
@@ -42,7 +51,7 @@ void *hash_lookup (hash *h, void *key)
 	return h->values[i];
 }
 
-//function to increment goodmapped or badmapped hashes
+// function to increment goodmapped or badmapped hashes
 void increment (hash *h, int startpos, int endpos)
 {
 	int i, hashval;
@@ -53,3 +62,46 @@ void increment (hash *h, int startpos, int endpos)
 		else { hash_insert( h, i, (hashval+1) ); }
 	}
 }
+
+// function to load fai reference
+void load_fai (char *refgenome)
+{
+	char 	line[128],
+		*linep = line,
+		*token,
+		*sn;
+	const char delim = "\t";
+	int 	field = 0,
+		chrlen,
+		offset,
+		linelength,
+		binlinelength;
+	FILE 	*faifile = fopen( refgenome, "r" );
+//	fai 	f;
+	
+//	f.chrlen = hash_new(10);
+//	f.offset = hash_new(10);
+//	f.linelength = hash_new(10);
+//	f.binlinelength = hash_new(10);
+	fprintf( stdout, "Hello from the function\n" );	
+	while( fgets( line, sizeof line, faifile ) != NULL )
+	{
+		fprintf( stdout,"%s\n",line );
+		while(token = strsep(&linep, delim))
+		{
+			switch(field)
+			{
+				case 0 : sn = token; break;
+			//	case 1 : hash_insert( f.chrlen, sn, atoi(token) ); break;
+			//	case 2 : hash_insert( f.offset, sn, atoi(token) ); break;
+			//	case 3 : hash_insert( f.linelength, sn, atoi(token) ); break;
+			//	case 4 : hash_insert( f.binlinelength, sn, atoi(token) ); break;
+			}
+			field++;
+		}
+	}
+//	return f;
+}
+
+
+
