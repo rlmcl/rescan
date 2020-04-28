@@ -2,45 +2,57 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-#include "functions.h"
-#include "help.h"
+#include <stdbool.h>
+#include <time.h>
+#include "errors.c"
+#include "functions.c"
+#include "help.c"
 
 int main( int argc, char **argv )
 {
-	int	start=0,	// start position for reporting (specify 0 for whole-chromosome)
-		end=250000000,	// end position for reporting (specify chr length for whole-chromosome)
-		dist = 200,	// upstream/downstream parameter for searching each locus for bad read pairs
-		minq = 20,	// minimum mapping quality to consider a good read
-		maxfrag = 2000,	// maximum fragment length permitted (distance between read pairs)
-		field,		// field counter to identify right columns from bam
-		flag,		// bitwise flag
-		pos,		// read position
-		mapq,		// mapping quality of read
-		pnext,		// pos of next segment
-		tlen,		// template length
-		nm,		// NM field in bam file (edit distance of read to reference)
-		startpos,	// start position of read's influence
-		endpos,		// end position of read's influence
-		direction,	// direction of read's influence
-		seqlen,		// length of sequence
-		hashval,	// holder for current value of good/badmapped hash when looking up or incrementing
-		hashval2,	// same as hashval
-		i,		// counter
-		option_index=0,	// option counter for getopt
-		c;		// character initializer for getopt
+	char	line[BUFFSIZE],		// lines of SAM-format input
+			rdid[RDIDLEN],		// read ID
+			lbm[10000][RDIDLEN],// read IDs for tracking left-hand badmapped (lbm) reads
+			rname[RNAMELEN],	// RNAME field (ie chromosome name)
+			prevrname[RNAMELEN],// RNAME of previous read
+			userchr[RNAMELEN],	// User-defined chromosome for outputting
+			regionsfile[FNLEN],	// Regions file name
+			id[SIDLEN] = "NA",	// Sample ID
+			*rnext,				// RNEXT string (reference name for next segment)
+			*linep,				// pointer for looping through line elements
+			*token;				// for string spliting
 
-	char	line[BUFFSIZE],	// lines of SAM-format input
-		*refgenome,// path to reference genome
-		*refseq,	// reference sequence for read
-		*rnext,		// RNEXT string (reference name for next segment)
-		*token;		// for string spliting
-		
-	float	editdist = 1.0,	// min edit distance (as % of length) to consider read as bad
-		result;		// placeholder for results while printing
-	
-	const char *delim ="\t";// tab delimiter for line inputs
-	
-	fai	refinfo;	// fai structure holding index information for reference genome
+	const char *delim ="\t";	// tab delimiter for line inputs
+			
+	int	start=-1,					// start position for reporting (specify 0 for whole-chromosome)
+		end=-1,						// end position for reporting (specify chr length for whole-chromosome)
+		userregionspecified = 0,	// to check that all three of -s, -e and -c are provided
+		dist = 200,					// upstream/downstream parameter for searching each locus for bad read pairs
+		minq = 20,					// minimum mapping quality to consider a good read
+		maxfrag = 50000,			// maximum fragment length permitted (distance between read pairs)
+		jump = 1,					// jump parameter for skipping bases in output
+		maxpos = 0,					// maximum position reached in bam
+		minpos = BASELEN,			// minimum position reached in bam
+		field,						// field counter to identify right columns from bam
+		flag,						// bitwise flag
+		pos,						// read position
+		mapq,						// mapping quality of read
+		pnext,						// pos of next segment
+		tlen,						// template length
+		startpos,					// start position of read's influence
+		endpos,						// end position of read's influence
+		direction,					// direction of read's influence
+		seqlen,						// length of sequence
+		lowestlbm = 0,				// lowest populated slot in left-hand badmapped (lbm) array
+		sizeoflbm = 0,				// maximum populated slot in lbm array
+		i,							// counter
+		option_index=0,				// option counter for getopt
+		c;							// character initializer for getopt
+
+	unsigned short *goodmapped,	// goodmapped array
+				   *badmapped;	// badmapped array
+	goodmapped = (unsigned short *)malloc( BASELEN * sizeof(unsigned short) );
+	badmapped  = (unsigned short *)malloc( BASELEN * sizeof(unsigned short) );
 
 	//Get user-defined parameters
 	static struct option long_options[] =
@@ -48,132 +60,157 @@ int main( int argc, char **argv )
 		{"add", 1, 0, 0},
 		{"start",required_argument,0,'s'},		// start position for reporting rescan statistics
 		{"end",required_argument,0,'e'},		// end position for reporting
-		{"distance",required_argument,0,'d'},		// up/downstream distance for searching
-		{"levenshtein",required_argument,0,'l'},	// edit distance above which to consider a read bad
+		{"jump",required_argument,0,'j'},		// jump parameter for skipping bases of output
+		{"distance",required_argument,0,'d'},	// up/downstream distance for searching
+		{"maxfrag",required_argument,0,'m'},	// maximum fragment length
 		{"minq",required_argument,0,'q'},		// minimum mapping quality for good reads
-		{"refgenome",required_argument,0,'r'},		// reference genome
-		{"help",no_argument,0,'h'},			// ask for help
+		{"regions",required_argument,0,'r'},	// regions file (bed format)
+		{"id",required_argument,0,'i'},			// sample ID to report in VCF
+		{"help",no_argument,0,'h'},				// ask for help
 		{NULL, 0, NULL, 0}
 	};
-
-	refgenome = "/home/russell/Dropbox/Data_and_resources/Genomes/hg19.fa.fai";
-	refinfo = load_fai( *refgenome );
 	
-	while ((c = getopt_long(argc, argv, "hs:e:d:l:q:r:", long_options, &option_index)) != -1)
+	while ((c = getopt_long(argc, argv, "hs:e:j:d:l:q:r:i:c:", long_options, &option_index)) != -1)
 	{
 		int this_option_optind = optind ? optind : 1;
 		switch (c)
 		{
-			case 'h': usage(); return 0;
-			case 's': start = atoi(optarg); break;
-			case 'e': end = atoi(optarg); break;
+			case 's': start = atoi(optarg); userregionspecified +=1; break;
+			case 'e': end = atoi(optarg); userregionspecified +=1; break;
+			case 'j': jump = atoi(optarg); break;
 			case 'd': dist = atoi(optarg); break;
-			case 'l': sscanf( optarg, "%f", &editdist ); break;
+			case 'm': maxfrag = atoi(optarg); break;
 			case 'q': minq = atoi(optarg); break;
-			case 'r': refgenome = optarg; break;
+			case 'c': strcpy(userchr,optarg); userregionspecified +=1; break;
+			case 'r': strcpy(regionsfile,optarg); regionsarespecified = true ; break;
+			case 'i': strcpy(id,optarg); break;
+			case 'h': usage(regionsfile,id,userchr,start,end,jump,dist,maxfrag,minq); return 0;
 		}
 	}
-	hash 	*goodmapped = hash_new( 1000000000 ),
-		*badmapped  = hash_new( 1000000000 );
 
+	// Has user specified regions file or used -s, -e, -c? If so, parse into linked lists
+	checkuserregions(userregionspecified,regionsfile,userchr,start,end);
+
+	// Main part: read stdin (SAM stream) and get to work on the data
 	while ( fgets ( line, sizeof line, stdin ) != NULL )
 	{
 		// initialize useful values
-		field = 0;		// for extracting SAM fields
-		nm = 0;			// clear previous nm value
-		char *linep = line;	// pointer for looping through line elements
-		
+		field = 0;			// for extracting SAM fields
+		linep = line;		// pointer for looping through line elements
+
+		if( line[0] == '@' ) { continue; }	// skip header lines, if present
+
+		// extract SAM fields
 		while(token = strsep(&linep, delim))
 		{
 			switch(field)
 			{
-				case 1 : flag = atoi(token); break;	// flag now contains bitwise SAM flag
-				case 3 : pos = atoi(token); break;	// pos now contains mapping position of read
-				case 4 : mapq = atoi(token); break;	// mapq now contains mapping quality of read
-				case 6 : rnext = token; break;		// rnext now contains chr of next read in pair
+				case 0 : strcpy( rdid, token ); break;	// rdid now contains read ID
+				case 1 : flag = atoi(token); break;		// flag now contains bitwise SAM flag
+				case 2 : strcpy( rname, token ); break; // rname now contains reference seq name (chromosome)
+				case 3 : pos = atoi(token); break;		// pos now contains mapping position of read
+				case 4 : mapq = atoi(token); break;		// mapq now contains mapping quality of read
+				case 6 : rnext = token; break;			// rnext now contains chr of next read in pair
 				case 7 : pnext = atoi(token); break;	// pnext now contains pos of next read in pair
-				case 8 : tlen = atoi(token); break;	// tlen now contains template length
+				case 8 : tlen = atoi(token); break;		// tlen now contains template length
 				case 9 : seqlen = strlen(token); break;	// seqlen now contains length of read
-			}
-			if( strstr( token, "NM:" ) != NULL )		// extract NM field, if available
-			{
-				nm = atoi(token+5);
 			}
 			field++;
 		}
-				
-		// if mapping quality < user's minimum, skip to next read
-		if( mapq < minq ) { continue; }
 
-		//TODO: correct these so that they don't count non-spanning fragments
-		if( ( flag & 16 ) == 16 ) // segment is reverse complemented
+		// Has chromosome changed? If so, print results for this chromosome
+		if( (strcmp(rname, prevrname)) )
 		{
-			startpos = pos - dist;
-			endpos = pos + seqlen;
-			direction = -1;
-		}
-		else // segment is NOT reverse complemented
-		{
-			startpos = pos;
-			endpos = pos + seqlen + dist;
-			direction = 1;
-		}
-		
-		// skip if fragment doesn't overlap region of interest
-		if( endpos < start | startpos > end ) {	continue; }
-		
-		if( ( flag & 4 ) == 0 ) // segment is mapped adequately
-		{
-			if( ( flag & 8 ) == 0 ) // next segment is mapped adequately
+			report(prevrname, goodmapped, badmapped, jump, id, argc, argv);
+			if( !regionsarespecified )		// No user regions specified; default to min and max bam positions
 			{
-				if( !strcmp(rnext,"=") ) // next segment is on same chromosome
+				ushead->val = BASELEN;		// reset userstarts | note this is a hack-ey, probably unintuitive way of resetting
+				uehead->val = 0;			// reset userends 	| these values. If user regions aren't specified we just use the
+				strcpy(uchead->val,rname);	// reset userchrs 	| user regions linked lists anyway to store the chr and bam positions
+			}
+		}
+		strcpy( prevrname, rname );
+
+		// Determine read orientation
+		switch( ( flag & 16 ) )
+		{
+			case 16 : // segment is reverse complemented
+				startpos = pos - dist;
+				endpos = pos + seqlen;
+				direction = -1;
+				break;
+			case 0 : // segment is NOT reverse complemented
+				startpos = pos;
+				endpos = pos + seqlen + dist;
+				direction = 1;
+				break;
+		}
+
+		if( !regionsarespecified )		// No user regions specified; update min and max bam positions
+		{
+			uehead->val = ( endpos   > uehead->val ) ?   endpos : uehead->val;	// reassign max pos if current bam position is greater
+			ushead->val = ( startpos < ushead->val ) ? startpos : ushead->val;	// reassign min pos if current bam position is lower
+		}
+
+		// skip if fragment doesn't overlap region of interest
+		if( regionsarespecified && !readisinregions( rname, startpos, endpos ) ) { continue; }
+
+		// Main substance of programme: check if mate is well-aligned
+		if( !( flag & 4 ) ) // segment is mapped adequately
+		{
+			if( mapq >= minq ) // segment is mapped with sufficient quality
+			{
+				if( !( flag & 8 ) &&							// next segment is mapped adequately
+				    ( rnext[0] == '=' )	&&						// next segment is on same chromosome
+				    ( ( pnext - pos ) * direction < maxfrag ) )	// next segment is within maxfrag distance
 				{
-					if( ( pnext - pos ) * direction < maxfrag ) // next segment is within 2kb
+					if( direction == 1 ) // First in pair; increment goodmapped
 					{
-						//TODO: populate hash of read IDs to ignore (avoid second counting later)
-						if( ( (float)nm/seqlen ) < editdist )
-						{
-						//	fprintf(stdout,"aah%f %d %f\n",((float)nm/seqlen),nm,editdist);
-							increment( goodmapped, startpos, endpos );
-						}
-						else
-						{
-						//	fprintf(stdout,"aah\n");
-							increment( badmapped, pos, (pos+seqlen) );
-						}
+						increment( goodmapped, startpos, endpos );
 					}
-					else // next segment is on same chr but too far away (probably rare)
+					else // 2nd in pair; check mapping qualities
 					{
-						increment( badmapped, startpos, endpos );
+						if( mapq < minq ) // 2nd read is actually bad (didn't know earlier)
+						{
+							increment( badmapped, startpos, endpos );
+							decrement( goodmapped, startpos, endpos );	// molecule was erroneously counted earlier
+						}
+						else // 2nd read is ok; check lbm for 1st read
+						{
+							if( checklbm(rdid) )
+							{
+								increment( badmapped, startpos, endpos );
+							}
+							else
+							{
+								// do nothing: this is a fragment with both ends mapped well so was
+								// already handled when 1st read was traversed (goodmapped was incremented)
+							}
+						}
 					}
 				}
-				else // next segment is on a different chromosome
+				else // next segment is not mapped adequately, on a different chr or too far away on same chr
 				{
 					increment( badmapped, startpos, endpos );
 				}
 			}
-			else // next segment is not mapped adequately
+			else // segment is not mapped with sufficient quality
 			{
-				increment( badmapped, startpos, endpos );
+				if( direction == 1 ) // First in pair; add read id to lbm (if 2nd: don't need to do anything)
+				{
+					addtolbm( rdid );
+				}
+				else // 2nd in pair; just need to check if read id is also in lbm and delete it
+				{
+					checklbm( rdid );
+				}
 			}
-		}
-	}
-	for( i = start; i < end; i++ )
-	{
-		hashval = hash_lookup( badmapped, i );
-		hashval2= hash_lookup( goodmapped,i );
-		if( hashval == NULL ) { hashval = 0; }
-		if( hashval2== NULL ) { hashval2= 0; }
-		if( hashval > 0 )
-		{
-			result = (float)hashval/((float)hashval+(float)hashval2);
-			fprintf( stdout, "%f\t", result );
 		}
 		else
 		{
-			fprintf( stdout, "0\t" );
 		}
 	}
-	fprintf( stdout, "\n" );
+	// Report final statistics (after last chromosome)
+	report(rname,goodmapped,badmapped,jump,id,argc,argv);
 	return 0;
 }

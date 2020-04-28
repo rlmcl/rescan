@@ -1,0 +1,211 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <string.h>
+#include "functions.h"
+#include "help.h"
+
+// Come back to this: initialising gm and bm outside main to allocate
+// memory on the heap instead of stack -- see:
+// https://stackoverflow.com/questions/3815232/seg-fault-when-initializing-array
+
+//unsigned short	goodmapped[BASELEN],			// goodmapped array
+//		badmapped[BASELEN];			// badmapped array
+
+int main( int argc, char **argv )
+{
+	int	start=0,		// start position for reporting (specify 0 for whole-chromosome)
+		end=-1,			// end position for reporting (specify chr length for whole-chromosome)
+		dist = 200,		// upstream/downstream parameter for searching each locus for bad read pairs
+		minq = 20,		// minimum mapping quality to consider a good read
+		maxfrag = 50000,	// maximum fragment length permitted (distance between read pairs)
+		jump = 1,		// jump parameter for skipping bases in output
+		maxpos = 0,		// maximum position reached in bam
+		field,			// field counter to identify right columns from bam
+		flag,			// bitwise flag
+		pos,			// read position
+		mapq,			// mapping quality of read
+		pnext,			// pos of next segment
+		tlen,			// template length
+		startpos,		// start position of read's influence
+		endpos,			// end position of read's influence
+		direction,		// direction of read's influence
+		seqlen,			// length of sequence
+		lowestlbm = 0,		// lowest populated slot in left-hand badmapped (lbm) array
+		sizeoflbm = 0,		// maximum populated slot in lbm array
+		i,			// counter
+		option_index=0,		// option counter for getopt
+		c;			// character initializer for getopt
+
+
+	char	line[BUFFSIZE],		// lines of SAM-format input
+		rdid[RDIDLEN],		// read ID
+		lbm[10000][RDIDLEN],	// read IDs for tracking left-hand badmapped (lbm) reads
+		rname[RNAMELEN],	// RNAME field (ie chromosome name)
+		chr[RNAMELEN],		// User-defined chromosome for outputting
+		headertag[3],		// Tag element from header
+		headersn,
+		headerln,
+		*rnext,			// RNEXT string (reference name for next segment)
+		*token;			// for string spliting
+		
+	float	result;			// placeholder for results while printing
+
+	unsigned short	*goodmapped,	// goodmapped array
+			*badmapped;	// badmapped array
+
+	goodmapped = (unsigned short *)malloc( BASELEN * sizeof(unsigned short) );
+	badmapped  = (unsigned short *)malloc( BASELEN * sizeof(unsigned short) );
+
+	const char *delim ="\t";	// tab delimiter for line inputs
+
+	//Get user-defined parameters
+	static struct option long_options[] =
+	{
+		{"add", 1, 0, 0},
+		{"start",required_argument,0,'s'},		// start position for reporting rescan statistics
+		{"end",required_argument,0,'e'},		// end position for reporting
+		{"jump",required_argument,0,'j'},		// jump parameter for skipping bases of output
+		{"distance",required_argument,0,'d'},		// up/downstream distance for searching
+		{"maxfrag",required_argument,0,'m'},		// maximum fragment length
+		{"minq",required_argument,0,'q'},		// minimum mapping quality for good reads
+		{"help",no_argument,0,'h'},			// ask for help
+		{NULL, 0, NULL, 0}
+	};
+	
+	while ((c = getopt_long(argc, argv, "hs:e:j:d:l:q:r:", long_options, &option_index)) != -1)
+	{
+		int this_option_optind = optind ? optind : 1;
+		switch (c)
+		{
+			case 'h': usage(start,end,jump,dist,maxfrag,minq); return 0;
+			case 's': start = atoi(optarg); break;
+			case 'e': end = atoi(optarg); break;
+			case 'j': jump = atoi(optarg); break;
+			case 'd': dist = atoi(optarg); break;
+			case 'm': maxfrag = atoi(optarg); break;
+			case 'q': minq = atoi(optarg); break;
+		}
+	}
+
+	while ( fgets ( line, sizeof line, stdin ) != NULL )
+	{
+		// initialize useful values
+		field = 0;		// for extracting SAM fields
+		char *linep = line;	// pointer for looping through line elements
+		
+		//TODO 1 : Process SAM header into reference structure
+
+		if( line[0] == '@' ) // This is a header line
+		{
+			char temp[3] = "@SQ";
+			if( !(strncmp( line, temp, 3 ) ) )
+			{
+				while( token = strsep(&linep,delim) )
+				{
+					strncpy( headertag,token,3 );
+					if( !(strncmp( headertag,"SN:",3 ) ) )
+					{
+						fprintf(stdout, "Sequence name: %s\n",token);
+					}
+				}
+			}
+		}
+		else
+		{
+			while(token = strsep(&linep, delim))
+			{
+				switch(field)
+				{
+					case 0 : strcpy( rdid, token ); break;	// rdid now contains read ID
+					case 1 : flag = atoi(token); break;	// flag now contains bitwise SAM flag
+					case 2 : strcpy( rname, token ); break; // rname  now contains reference seq name (chromsome)
+					case 3 : pos = atoi(token); break;	// pos now contains mapping position of read
+					case 4 : mapq = atoi(token); break;	// mapq now contains mapping quality of read
+					case 6 : rnext = token; break;		// rnext now contains chr of next read in pair
+					case 7 : pnext = atoi(token); break;	// pnext now contains pos of next read in pair
+					case 8 : tlen = atoi(token); break;	// tlen now contains template length
+					case 9 : seqlen = strlen(token); break;	// seqlen now contains length of read
+				}
+				maxpos = ( pos > maxpos ) ? pos : maxpos;	// reassign maxpos if current bam position is greater
+				field++;
+			}
+		}
+		// end of TODO 1 region
+
+		// TODO:	control element to check current chromosome
+		//			- if not same, report() stats and free goodmapped and badmapped
+
+		// Determine read orientation
+		switch( ( flag & 16 ) )
+		{
+			case 16 : // segment is reverse complemented
+				startpos = pos - dist;
+				endpos = pos + seqlen;
+				direction = -1;
+				break;
+			case 0 : // segment is NOT reverse complemented
+				startpos = pos;
+				endpos = pos + seqlen + dist;
+				direction = 1;
+				break;
+		}
+		
+		// skip if fragment doesn't overlap region of interest
+		if( endpos < start | startpos > end ) {	continue; }
+		
+		if( !( flag & 4 ) ) // segment is mapped adequately
+		{
+			if( mapq >= minq ) // segment is mapped with sufficient quality
+			{
+				if( !( flag & 8 ) &&				// next segment is mapped adequately
+				    ( rnext[0] == '=' )	&&			// next segment is on same chromosome
+				    ( ( pnext - pos ) * direction < maxfrag ) )	// next segment is within maxfrag distance
+				{
+					if( direction == 1 ) // First in pair; increment goodmapped
+					{
+						increment( goodmapped, startpos, endpos );
+					}
+					else // 2nd in pair; check mapping qualities
+					{
+						if( mapq < minq ) // 2nd read is actually bad (didn't know earlier)
+						{
+							increment( badmapped, startpos, endpos );
+							decrement( goodmapped, startpos, endpos );	// molecule was erroneously counted earlier
+						}
+						else
+						{
+							// Check mapping quality of 1st read from lbm
+							// If 1st read is in lbm, increment badmapped
+						}
+					}
+				}
+				else // next segment is not mapped adequately, on a difference chr or too far away on same chr
+				{
+					increment( badmapped, startpos, endpos );
+				}
+			}
+			else // segment is not mapped with sufficient quality
+			{
+//				addtolbm( lbm, rdid, lowestlbm, sizeoflbm );
+//				if( ( pnext - pos ) * direction < maxfrag ) // check that next segment is in maxfrag range
+//				increment( badmapped, startpos, endpos );
+			}
+		}
+	}
+
+	// TODO: fold below into function that receives pointers to goodmapped, badmapped, chr and pos
+	// function should iterate through regions file and only report for those regions
+	// should also output vcf format data
+	end = ( end == -1 ) ? maxpos : end;	// Define end for printing as maxpos unless user has specified end
+	char chromosome[10] = "chr0";
+	for( i = start; i < end; i+=jump )
+	{
+		result = (float)badmapped[i]/((float)goodmapped[i]+(float)badmapped[i]);
+//		fprintf( stdout, "%f\t%d\t%d\t%d\t%d\t%d\n", result, goodmapped[i], badmapped[i], !(flag&8), rnext[0]=='=', ( ( pnext - pos ) * direction < maxfrag ) );
+//		fprintf( stdout, "%f\n", result );
+		fprintf( stdout, "%s\t%d\t.\t.\t.\t.\t.\t.\tGT:RS:GM:BM\t./.:%f:%d:%d\n", chromosome,i,result,goodmapped[i],badmapped[i] );
+	}
+	fprintf( stdout, "\n" );
+	return 0;
+}
