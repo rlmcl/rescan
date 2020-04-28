@@ -234,7 +234,7 @@ int checklbm( char *rdid )
 
 
 /// LINKED LISTS
-// see:
+// more than a little help from:
 // https://www.thegeekstuff.com/2012/08/c-linked-list-example/
 
 struct userstarts* append_userstarts(int val)
@@ -376,36 +376,4 @@ void checkuserregions(int userregionspecified,char *regionsfile,char *userchr,in
 	else if ( userregionspecified==3 ) 	{ buildregion( userchr,start,end ); regionsarespecified = true; } 
 	// no regions specified -- start with absurd assignment that gets updated on the fly
 	else 								{ buildregion( "",BASELEN,0 ); } 
-}
-
-/// TEMP just to check the linked list functionality
-void print_list(void)
-{
-	struct userchrs   *ucptr = uchead;
-	struct userstarts *usptr = ushead;
-	struct userends   *ueptr = uehead;
-	struct usernames  *unptr = unhead;
-
-	while(usptr != NULL)
-	{
-		printf("%s\t%d\t%d\t%s\n",ucptr->val,usptr->val,ueptr->val,unptr->val);
-		ucptr = ucptr->next;
-		usptr = usptr->next;
-		ueptr = ueptr->next;
-		unptr = unptr->next;
-	}
-
-	return;
-}
-void print_lbm(void)
-{
-	struct lbm   *lbmptr = lbmhead;
-
-	while(lbmptr != NULL)
-	{
-		printf("%s\n",lbmptr->val);
-		lbmptr = lbmptr->next;
-	}
-
-	return;
 }
