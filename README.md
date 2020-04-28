@@ -46,7 +46,7 @@ Stream chromosome 9 data from `input.bam` and report REscan statistics just for 
 ```
 samtools view input.bam chr9 | rescan -c chr9 -s 27570000 -e 27577000 -d 600 > output.vcf
 ```
-Stream from a genome file falled `jim_genome.bam` and report REscan statistics for all transcripts with genomic coordinates specified in `transcripts.bed`. Specify sample ID as `Jim`. Only report every 100th base (`-j`). Compress the output with `bgzip`:
+Stream from a genome file called `jim_genome.bam` and report REscan statistics for all transcripts with genomic coordinates specified in `transcripts.bed`. Specify sample ID as `Jim`. Only report every 100th base (`-j`). Compress the output with `bgzip`:
 
 ```
 samtools view jim_genome.bam | rescan -r transcripts.bed -i Jim -j 100 | bgzip > jim_rescan.vcf.gz
@@ -60,6 +60,10 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 - **REscan reads from stdin**
 
    This is for simplicity and flexibility, so it can be built into pipelines (eg using `samtools view`), as detailed above.
+
+- **REscan writes to stdout**
+
+   Again for flexibility; recommended you pipe into `bgzip` (block gzip tool that comes with `tabix` -- `sudo apt install tabix`) so that you can index and fast-access regions later (`tabix output.vcf.gz`).
 
 - **REscan expects paired-end, _position-sorted_ data**
 
