@@ -6,6 +6,7 @@
 #define RNAMELEN	64			// Max length of reference names (chromsomes)
 #define REGNAMELEN	64			// Max length of user-defined region names
 #define FNLEN		256			// Max length for regions file name
+#define MAXLBM		512			// Max number of reads to hold in memory for leftbadmapped list
 #define DEBUG(a) do { printf("%s\n", a); fflush(stdout); } while (0)
 
 
@@ -13,7 +14,7 @@
 bool	thisis1stwrite		= true,	// if first time writing vcf data (print header)
 		regionsarespecified	= false;// shorthand for control structures if user provides regions file
 
-// TODO: find-replace next, next, next, and next to just next
+int     lbmcounter = 0;
 
 // Linked list structures
 struct userstarts 	{ int val;				struct userstarts *next; };
@@ -178,8 +179,20 @@ void decrement( unsigned short *a, int *startpos, int *endpos )
 
 struct lbm* addtolbm(char *val)
 {
+    lbmcounter++;
+
 	bool create = false;	// toggle to create linked list if this is the first
 	if(lbmhead == NULL) { create = true; }
+
+	// if lbm list is bigger than 1,000, start culling the head
+	struct lbm *del = (struct lbm*)malloc(sizeof(struct lbm));
+	if( lbmcounter >= MAXLBM )
+	{
+		lbmcounter--;
+		lbmhead = lbmhead->next;
+		free(del);
+//		del = NULL;
+	}
 
 	struct lbm *lbmptr = (struct lbm*)malloc(sizeof(struct lbm));
 	if(lbmptr == NULL) { diewitherror(LBMERR); }
@@ -192,8 +205,8 @@ struct lbm* addtolbm(char *val)
 	}
 	else
 	{
-		lbmcurr->next = lbmptr;
-		lbmcurr = lbmptr;
+		lbmcurr->next = lbmptr;	// add to end of linked list
+		lbmcurr = lbmptr;		// not start
 		return lbmptr;
 	}
 }
@@ -219,6 +232,8 @@ int checklbm( char *rdid )
 			free( current );
 			current = NULL;
 
+            lbmcounter--;
+
 			// return success at finding rdid
 			return 1;
 		}
@@ -234,7 +249,7 @@ int checklbm( char *rdid )
 
 
 /// LINKED LISTS
-// more than a little help from:
+// with help from:
 // https://www.thegeekstuff.com/2012/08/c-linked-list-example/
 
 struct userstarts* append_userstarts(int val)
