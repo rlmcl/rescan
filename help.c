@@ -23,7 +23,7 @@ void usage(	char *regionsfile,
 	}
 	fprintf(stderr,	
 			"------------------------------------------\n"
-			"REscan version 1.00\n"
+			"REscan version 1.0.0\n"
 			"Russell McLaughlin, Trinity College Dublin\n"
 			"GNU General Public License v3\n"
 			"------------------------------------------\n"
