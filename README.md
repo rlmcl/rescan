@@ -63,7 +63,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 
 - **REscan writes to stdout**
 
-   Again for flexibility; recommended you pipe into `bgzip` (block gzip tool that comes with `tabix` -- `sudo apt install tabix`) so that you can index and fast-access regions later (`tabix output.vcf.gz`).
+   Again for flexibility; it is recommended you pipe into `bgzip` (block gzip tool that comes with `tabix` -- `sudo apt install tabix`) so that you can index and fast-access regions later (`tabix output.vcf.gz`).
 
 - **REscan expects paired-end, _position-sorted_ data**
 
@@ -82,7 +82,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 
 - **If your data aren't human, you might need to tweak**
 
-   The longest chromosome length the algorithm can handle is defined in `functions.c` in the `BASELEN` macro (268,435,456, ie 2^28, at time of writing). This is long enough to fit human chromosome 1; if you are working with an organism with longer chromosomes you will need to change this number.
+   The longest chromosome length the algorithm can handle is defined in `functions.c` in the `BASELEN` macro (268,435,456, ie 2^28, at time of writing). This is long enough to fit human chromosome 1; if you are working with an organism with longer chromosomes you will need to change this number and recompile.
 
 - **Know your input data**
 
