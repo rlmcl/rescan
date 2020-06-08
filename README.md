@@ -86,6 +86,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
    You'll get funky results if you stream a merged BAM file. You can set sample ID using the `--id` (`-i`) argument (defaults to `NA`).
    
 - **Feed it only the data it needs**
+
    If you are only generating statistics for certain regions (eg specified using `-r`/`--regions`) then consider also only outputting data relevant to these regions from SAMtools. Bear in mind that for the edges of your regions you will also need SAM data +/- some distance (eg, say, 500 bases) so that you will accurately count reads orientated into your loci of interest. One sensible solution is `samtools view in.bam -L regions1.bed | rescan -r regions2.bed [...]`, where `regions2.bed` contains your regions of interest and `regions1.bed` contains those regions extended by +/- 500 bp.
 
 - **REscan doesn't do variant calling _per se_**
