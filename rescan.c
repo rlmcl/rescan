@@ -124,9 +124,7 @@ int main( int argc, char **argv )
 			report(prevrname, goodmapped, badmapped, jump, id, argc, argv);
 			if( !regionsarespecified )		// No user regions specified; default to min and max bam positions
 			{
-				ushead->val = BASELEN;		// reset userstarts | note this is a hack-ey, probably unintuitive way of resetting
-				uehead->val = 0;			// reset userends 	| these values. If user regions aren't specified we just use the
-				strcpy(uchead->val,rname);	// reset userchrs 	| user regions linked lists anyway to store the chr and bam positions
+				resetchr(rname);
 			}
 		}
 		strcpy( prevrname, rname );

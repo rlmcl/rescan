@@ -392,3 +392,18 @@ void checkuserregions(int userregionspecified,char *regionsfile,char *userchr,in
 	// no regions specified -- start with absurd assignment that gets updated on the fly
 	else 								{ buildregion( "",BASELEN,0 ); } 
 }
+
+void resetchr( char *rname )
+{
+	ushead->val = BASELEN;      // reset userstarts | note this is a hack-ey, probably unintuitive way of resetting
+	uehead->val = 0;            // reset userends   | these values. If user regions aren't specified we just use the
+	strcpy(uchead->val,rname);  // reset userchrs   | user regions linked lists anyway to store the chr and bam positions
+	ussrpt = ushead;
+	uesrpt = uehead;
+	ucsrpt = uchead;
+	unsrpt = unhead;
+	usrchk = ushead;
+	uerchk = uehead;
+	ucrchk = uchead;
+	unrchk = unhead;
+}
