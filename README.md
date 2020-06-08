@@ -36,6 +36,18 @@ samtools view in.bam [ region ] | rescan [ options ]
 | `--minq` (`-q`)		| INT 	| minimum mapping quality for good reads 			|
 | `--help` (`-h`)		| -		| get help			 								|
 
+### Regions
+As well as controlling data flow into REscan using SAMtools (see *Feed it only the data it needs* under *Caveats and features*, below), you have three options for specifying regions for REscan output:
+1. **Don't specify regions**
+   REscan will output statistics for every locus encountered, skipping over bases if `-j` (`--jump`) is specified. Output data will correspond to every chromosome encountered in RNAME in the input stream, starting at the lowest position encountered for each chromosome (potentially minus distance \[`-d`/`--distance`\] parameter if read is reverse orientation) and finishing at the highest position for that chromosome.
+2. **Specify a single region**
+   `-c`, `-s` and `-e` (`--chr`, `--start` and `--end`) can be used to instruct REscan only to output data for a single region.
+3. **Specify multiple regions**
+   Using `-r` (`--regions`), a BED-format regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:
+   `chr6	16299112	16761490	ATXN1`
+   `chr9	27546545	27573866	C9orf72`
+   `chr12	111452268	111599676	ATXN2`
+
 ### Examples
 
 Report REscan statistics for all of chromosome 9 from `input.bam` and store in `output.vcf`:
@@ -72,6 +84,10 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 - **REscan expects only one sample per run**
 
    You'll get funky results if you stream a merged BAM file. You can set sample ID using the `--id` (`-i`) argument (defaults to `NA`).
+   
+- **Feed it only the data it needs**
+   If you are only generating statistics for certain regions (eg specified using `-r`/`--regions`) then consider also only outputting data relevant to these regions from SAMtools. Bear in mind that for the edges of your regions you will also need SAM data +/- some distance (eg, say, 500 bases) so that you will accurately count reads orientated into your loci of interest. One sensible solution is `samtools view in.bam -L regions1.bed | rescan -r regions2.bed [...]`, where `regions2.bed` contains your regions of interest and `regions1.bed` contains those regions extended by +/- 500 bp.
+
 - **REscan doesn't do variant calling _per se_**
 
    The REscan statistic is very basic; REscan will not measure the repeat length, for example. For a more comprehensive tool, try ExpansionHunter or one of the many _punSTR_ programmes.
