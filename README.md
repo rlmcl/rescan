@@ -43,7 +43,7 @@ As well as controlling data flow into REscan using SAMtools (see *Feed it only t
 2. **Specify a single region**
    `-c`, `-s` and `-e` (`--chr`, `--start` and `--end`) can be used to instruct REscan only to output data for a single region.
 3. **Specify multiple regions**
-   Using `-r` (`--regions`), a BED-format regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:
+   Using `-r` (`--regions`), a BED-format regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:  
    `chr6	16299112	16761490	ATXN1`  
    `chr9	27546545	27573866	C9orf72`  
    `chr12	111452268	111599676	ATXN2`  
