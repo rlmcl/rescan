@@ -38,11 +38,17 @@ samtools view in.bam [ region ] | rescan [ options ]
 
 ### Regions
 As well as controlling data flow into REscan using SAMtools (see *Feed it only the data it needs* under *Caveats and features*, below), you have three options for specifying regions for REscan output:
+
 1. **Don't specify regions**
+
    REscan will output statistics for every locus encountered, skipping over bases if `-j` (`--jump`) is specified. Output data will correspond to every chromosome encountered in RNAME in the input stream, starting at the lowest position encountered for each chromosome (potentially minus distance \[`-d`/`--distance`\] parameter if read is reverse orientation) and finishing at the highest position for that chromosome.
+   
 2. **Specify a single region**
+
    `-c`, `-s` and `-e` (`--chr`, `--start` and `--end`) can be used to instruct REscan only to output data for a single region.
+   
 3. **Specify multiple regions**
+
    Using `-r` (`--regions`), a BED-format regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:  
    `chr6	16299112	16761490	ATXN1`  
    `chr9	27546545	27573866	C9orf72`  
@@ -96,6 +102,9 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 - **It won't just identify repeat expansions**
 
    There are many ways to end up with poorly-mapped mates as defined by REscan (eg inversions, translocations, CNVs). This programme is called REscan because the original motivation to write it was to identify novel potential repeat expansions. A high statistic at a locus warrants further investigation and should not be considered as definitive evidence for a repeat expansion. You should follow up with other tools and wet-lab validation, if possible.
+
+- **REscan assumes chromosomes are linear**
+   It doesn't (currently) do anything fancy with circular chromosomes like the mitochondrial genome so statistics at SAM positions 0 or length(chr) won't be quite right.
 
 - **If your data aren't human, you might need to tweak**
 
