@@ -145,6 +145,7 @@ int main( int argc, char **argv )
 				direction = 1;
 				break;
 		}
+        startpos = ( startpos < 0 ) ? 0 : startpos; // reassign negative startpos (happens at the start of chromosomes)
 
 		if( !regionsarespecified )		// No user regions specified; update min and max bam positions
 		{
