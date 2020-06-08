@@ -37,7 +37,7 @@ samtools view in.bam [ region ] | rescan [ options ]
 | `--help` (`-h`)		| -		| get help			 								|
 
 ### Regions
-As well as controlling data flow into REscan using SAMtools (see *Feed it only the data it needs* under *Caveats and features*, below), you have three options for specifying regions for REscan output:
+As well as controlling data flow into REscan using [SAMtools](http://www.htslib.org/doc/samtools.html) (see *Feed it only the data it needs* under *Caveats and features*, below), you have three options for specifying regions for REscan output:
 
 1. **Don't specify regions**
 
@@ -49,7 +49,7 @@ As well as controlling data flow into REscan using SAMtools (see *Feed it only t
    
 3. **Specify multiple regions**
 
-   Using `-r` (`--regions`), a BED-format regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:  
+   Using `-r` (`--regions`), a [BED-format](https://en.wikipedia.org/wiki/BED_(file_format)) regions file can be specified. Expected format is tab-delimited, with chromosome, start and end positions and an optional name for each region (eg gene/transcript name). Regions should be position-sorted, with chromosomes in the same order as they appear in the SAM data. Example:  
    `chr6	16299112	16761490	ATXN1`  
    `chr9	27546545	27573866	C9orf72`  
    `chr12	111452268	111599676	ATXN2`  
@@ -81,7 +81,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 
 - **REscan writes to stdout**
 
-   Again for flexibility; it is recommended you pipe into `bgzip` (block gzip tool that comes with `tabix` -- `sudo apt install tabix`) so that you can index and fast-access regions later (`tabix output.vcf.gz`).
+   Again for flexibility; it is recommended you pipe into [`bgzip`](http://www.htslib.org/doc/bgzip.html) (block gzip tool that comes with [`tabix`](http://www.htslib.org/doc/tabix.html) -- `sudo apt install tabix`) so that you can index and fast-access regions later (`tabix output.vcf.gz`).
 
 - **REscan expects paired-end, _position-sorted_ data**
 
@@ -93,7 +93,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
    
 - **Feed it only the data it needs**
 
-   If you are only generating statistics for certain regions (eg specified using `-r`/`--regions`) then consider also only outputting data relevant to these regions from SAMtools. Bear in mind that for the edges of your regions you will also need SAM data +/- some distance (eg, say, 500 bases) so that you will accurately count reads orientated into your loci of interest. One sensible solution is `samtools view in.bam -L regions1.bed | rescan -r regions2.bed [...]`, where `regions2.bed` contains your regions of interest and `regions1.bed` contains those regions extended by +/- 500 bp.
+   If you are only generating statistics for certain regions (eg specified using `-r`/`--regions`) then consider also only inputting data relevant to these regions from SAMtools. Bear in mind that for the edges of your regions you will also need SAM data +/- some distance (eg, say, 500 bases) so that you will accurately count reads orientated into your loci of interest. One sensible solution is `samtools view in.bam -L regions1.bed | rescan -r regions2.bed [...]`, where `regions2.bed` contains your regions of interest and `regions1.bed` contains those regions extended by +/- 500 bp.
 
 - **REscan doesn't do variant calling _per se_**
 
@@ -104,6 +104,7 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
    There are many ways to end up with poorly-mapped mates as defined by REscan (eg inversions, translocations, CNVs). This programme is called REscan because the original motivation to write it was to identify novel potential repeat expansions. A high statistic at a locus warrants further investigation and should not be considered as definitive evidence for a repeat expansion. You should follow up with other tools and wet-lab validation, if possible.
 
 - **REscan assumes chromosomes are linear**
+
    It doesn't (currently) do anything fancy with circular chromosomes like the mitochondrial genome so statistics at SAM positions 0 or length(chr) won't be quite right.
 
 - **If your data aren't human, you might need to tweak**
