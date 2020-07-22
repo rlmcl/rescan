@@ -96,7 +96,8 @@ void write_vcf_header(char *id, int argc, char **argv)
 					"##INFO=<ID=UserRegion,Number=1,Type=String,Description=\"User-supplied region name for current REscan statistic\">\n"
 					"##starttime=%s"
 					"##command=",asctime(timeinfo));
-	for(int a = 0; a < argc; a++)
+	int a;
+	for(a = 0; a < argc; a++)
 	{
 		fprintf(stdout,"%s ",argv[a]);
 	}
@@ -125,7 +126,8 @@ int report(char *rname, unsigned short *goodmapped, unsigned short *badmapped, i
 		if( !strcmp(rname,ucsrpt->val) )
 		{
 			// report stats from ussrpt->val to uesrpt->val
-			for( int i = ussrpt->val; i < uesrpt->val ; i+=jump )
+			int i;
+			for( i = ussrpt->val; i < uesrpt->val ; i+=jump )
 			{
 				if(goodmapped[i]+badmapped[i]==0) { result = (float)0; }
 				else { result = (float)badmapped[i]/((float)goodmapped[i]+(float)badmapped[i]); }
