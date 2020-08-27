@@ -123,4 +123,4 @@ REscan is a simple tool for counting the number of poorly-paired reads spanning 
 GNU General Public license v3
 
 ### Citation
-Pending
+McLaughlin, RL. (2020) REscan: inferring repeat expansions and structural variation in paired-end short read sequencing data. _Bioinformatics_, [advance online publication](https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btaa753/5897410).
