@@ -1,3 +1,22 @@
+/*
+This file is part of REscan. (https://github.com/rlmcl/rescan)
+
+Copyright 2018-2020 Russell McLaughlin
+
+REscan is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+REscan is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with REscan.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #define BUFFSIZE	4096		// Buffer for reading lines of input
 #define BASELEN		268435456	// Max chromosome size (basepairs; 2^28 = 268,435,456)
 #define	READTRK		10000		// Max number of leftmost poorly-mapping reads that can be tracked at once
